@@ -1,23 +1,18 @@
-# Collapsible Document Editor
+# Talk Doc
 
-A React/Vite app for pasting or importing document text, then turning exact highlighted portions into collapsible text.
+A lightweight local-first document editor for creating expandable and collapsible talk notes.
 
-## Current behaviour
+## Features
 
-- Paste text from Word, Google Docs, websites, or plain text.
-- Upload `.docx`, `.txt`, `.md`, or `.html` files.
-- Highlight exact text and turn only that selected text into a collapsible portion.
-- Expanded collapsible text stays visually in the document flow.
-- Collapsed text is visually replaced by an editable preview line.
-- Preview text is separate from the full expanded content.
-- Full document text remains editable.
-- Restore a collapsible portion back to normal text using the current edited expanded text.
-- Autosaves current work locally on the device.
-- Keeps the latest 5 manual saved versions.
-- Exports/imports `.collapsible-doc` files.
-- Includes PWA files: manifest, icons, and service worker.
+- Paste or import document text
+- Highlight text and make it collapsible
+- Edit the collapsed preview separately from the expanded text
+- Autosave locally on the device
+- Save manual versions and restore previous versions
+- Export/import `.collapsible-doc` files
+- Install-ready PWA files and icons included
 
-## Run locally
+## Development
 
 ```bash
 npm install
@@ -30,13 +25,8 @@ npm run dev
 npm run build
 ```
 
-## Vercel settings
+Vercel settings:
 
-- Framework preset: Vite
+- Framework: Vite
 - Build command: `npm run build`
 - Output directory: `dist`
-- Install command: `npm install`
-
-## Important
-
-Do not commit `node_modules` or `dist`. They are ignored by `.gitignore`.

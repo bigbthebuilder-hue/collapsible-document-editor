@@ -13,11 +13,13 @@ import {
   RotateCcw,
   Save,
   Upload,
-  X
+  X,
+  MessageCircle,
+  CheckCircle2
 } from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.2';
 const STORAGE_KEY = 'collapsible-docs-current-v2';
 const VERSIONS_KEY = 'collapsible-docs-versions-v2';
 const SAFETY_KEY = 'collapsible-docs-safety-backup-v2';
@@ -72,7 +74,7 @@ function makeDocumentSnapshot(title, blocks, docId) {
   return {
     appVersion: APP_VERSION,
     documentId: docId || uid(),
-    title: title || 'Untitled Document',
+    title: title || 'Talk Doc',
     updatedAt: new Date().toISOString(),
     blocks: Array.isArray(blocks) ? blocks : []
   };
@@ -175,7 +177,7 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
 
 function App() {
   const [documentId, setDocumentId] = useState(uid());
-  const [docTitle, setDocTitle] = useState('Untitled Document');
+  const [docTitle, setDocTitle] = useState('Talk Doc');
   const [blocks, setBlocks] = useState([]);
   const [pasteText, setPasteText] = useState('');
   const [message, setMessage] = useState('Paste text or upload a .docx/.txt file to begin.');
@@ -214,7 +216,7 @@ function App() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed?.blocks)) {
           setDocumentId(parsed.documentId || uid());
-          setDocTitle(parsed.title || 'Untitled Document');
+          setDocTitle(parsed.title || 'Talk Doc');
           setBlocks(parsed.blocks);
           setShowImport(false);
           setLastSavedAt(parsed.updatedAt || null);
@@ -502,7 +504,7 @@ function App() {
     }
 
     setDocumentId(uid());
-    setDocTitle('Untitled Document');
+    setDocTitle('Talk Doc');
     setBlocks([]);
     setPasteText('');
     setShowImport(true);
@@ -563,15 +565,17 @@ function App() {
 
   return (
     <div className="app-shell">
-      <header className="compact-header">
-        <div className="title-area">
-          <p className="eyebrow">Collapsible document editor</p>
-          <input className="title-input" value={docTitle} onChange={event => setDocTitle(event.target.value)} aria-label="Document title" />
+      <header className="app-header">
+        <div className="brand-mark" aria-hidden="true">
+          <MessageCircle size={30} strokeWidth={2.8} />
+          <span />
+          <span />
+          <span />
         </div>
-        <div className="status-card">
-          <strong>{documentStats.collapsible}</strong>
-          <span>collapsible</span>
-          <small>{dirty ? 'Unsaved changes' : lastSavedAt ? `Saved ${formatTime(lastSavedAt)}` : 'Not saved yet'}</small>
+        <h1>Talk Doc</h1>
+        <div className="save-indicator" aria-live="polite">
+          <CheckCircle2 size={18} />
+          <span>{dirty ? 'Unsaved changes' : lastSavedAt ? `Saved ${formatTime(lastSavedAt)}` : 'Not saved yet'}</span>
         </div>
       </header>
 
@@ -615,7 +619,7 @@ function App() {
         <input ref={importDocumentRef} className="hidden" type="file" accept=".collapsible-doc,.json" onChange={handleImportDocument} />
       </nav>
 
-      <p className="message">{message}</p>
+      {message && <p className="message" role="status">{message}</p>}
 
       {showImport && (
         <section className="import-panel">

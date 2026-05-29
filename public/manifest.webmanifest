@@ -1,12 +1,12 @@
 {
-  "name": "Collapsible Docs",
-  "short_name": "Docs",
-  "description": "Turn long documents into expandable and collapsible sections.",
+  "name": "Talk Doc",
+  "short_name": "Talk Doc",
+  "description": "Create talk notes with expandable and collapsible sections.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4efe3",
-  "theme_color": "#2f4f46",
+  "background_color": "#ffffff",
+  "theme_color": "#1557c9",
   "icons": [
     {
       "src": "/icons/icon-192.png",
