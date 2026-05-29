@@ -576,8 +576,8 @@ function App() {
       </header>
 
       <nav className="toolbar">
-        <button onClick={() => setShowImport(value => !value)}><ClipboardPaste size={18} /> Paste/import</button>
-        <button className="primary" onClick={makeSelectedCollapsible}><Layers size={18} /> Make collapsible</button>
+        <button className="top-action paste-action" onClick={() => setShowImport(value => !value)}><ClipboardPaste size={18} /><span className="label-full">Paste/import</span><span className="label-short">Paste</span></button>
+        <button className="top-action make-action primary" onClick={makeSelectedCollapsible}><Layers size={18} /><span className="label-full">Make collapsible</span><span className="label-short">Collapse</span></button>
 
         <div className="menu-wrap wide-only">
           <button onClick={() => setShowViewMenu(value => !value)}><ChevronDown size={18} /> View</button>
@@ -592,7 +592,7 @@ function App() {
         <button className="wide-only" onClick={() => createManualVersion()}><Save size={18} /> Save</button>
 
         <div className="menu-wrap">
-          <button onClick={() => setShowOptions(value => !value)}><MoreHorizontal size={18} /> Options</button>
+          <button className="top-action options-action" onClick={() => setShowOptions(value => !value)}><MoreHorizontal size={18} /><span className="label-full">Options</span><span className="label-short">Menu</span></button>
           {showOptions && (
             <div className="menu-card options-menu">
               <p className="menu-label">Document</p>
