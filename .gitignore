@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+dist
 
 # Environment files
 .env
@@ -24,3 +25,4 @@ Thumbs.db
 
 # Vercel local config
 .vercel/
+.vercel
