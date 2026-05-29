@@ -1,4 +1,4 @@
-const CACHE_NAME = 'collapsible-docs-v1';
+const CACHE_NAME = 'collapsible-docs-v10';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {
