@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talk-doc-v12';
+const CACHE_NAME = 'talk-doc-v14';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {
