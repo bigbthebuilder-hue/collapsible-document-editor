@@ -1,43 +1,30 @@
-# Talk Doc
+# Talk Doc — v15
 
-A lightweight local-first document editor for creating expandable and collapsible talk notes.
+A local-first outline and discourse document editor with editable collapsible sections.
 
-## Features
+## What changed in v15
 
-- Multi-file local library for many outlines
-- Current filename shown and editable at the top
-- Paste or import document text
-- Highlight text and make it collapsible
-- Edit collapsed preview separately from expanded text
-- Section options menu inside each collapsible bar, with no hover layout jumping
-- Delivery Mode for desktop, tablet, and phone with editing locked
-- Autosave locally on the device
-- Save manual versions and restore previous versions per file
-- Export/import `.talk-doc` files
-- Install-ready PWA files and icons included
+- Added a small, always-visible **Deliver** button in Edit Mode.
+- Added a matching **Edit** button in Delivery Mode so switching modes is always available at the top.
+- Replaced the separate **Collapse all** and **Expand all** actions with one **All sections** switch.
+  - Switch off: all sections are collapsed.
+  - Switch on: all sections are expanded.
+- The same single switch is used in the desktop View menu, the phone/tablet View area, and Delivery Mode.
+- Updated the service-worker cache name to `talk-doc-v15`.
 
-## Development
+## Run locally
 
-```bash
+```powershell
 npm install
 npm run dev
 ```
 
-## Build
+## Production build
 
-```bash
+```powershell
 npm run build
 ```
 
-Vercel settings:
+## Storage
 
-- Framework: Vite
-- Build command: `npm run build`
-- Output directory: `dist`
-
-
-## v14
-
-- Removed the floating bottom status/message bar so it no longer covers the document while editing or delivering.
-- Status messages remain available to screen readers only; the visible save state stays in the top header.
-- Updated service worker cache name to v14.
+Talk Doc saves its library locally on the current device. It can work offline after it has been loaded once. Use **Export Talk Doc** to move a document between devices until cloud sync is added.

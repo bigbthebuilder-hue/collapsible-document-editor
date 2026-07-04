@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION = '1.3';
+const APP_VERSION = '1.5';
 const LIBRARY_KEY = 'talk-doc-library-v1';
 const CURRENT_ID_KEY = 'talk-doc-current-id-v1';
 const OLD_STORAGE_KEY = 'collapsible-docs-current-v2';
@@ -313,6 +313,8 @@ function App() {
   }), [library]);
 
   const versions = currentDoc?.versions || [];
+  const collapsibleBlocks = useMemo(() => blocks.filter(block => block.type === 'collapsible'), [blocks]);
+  const areAllSectionsExpanded = collapsibleBlocks.length > 0 && collapsibleBlocks.every(block => block.isOpen);
 
   useEffect(() => {
     latestSnapshotRef.current = currentSnapshot;
@@ -732,6 +734,11 @@ function App() {
     setMessage(open ? 'Expanded all collapsible portions.' : 'Collapsed all collapsible portions.');
   }
 
+  function toggleAllSections() {
+    if (!collapsibleBlocks.length) return;
+    expandAll(!areAllSectionsExpanded);
+  }
+
   function restoreCollapsibleToText(id) {
     createSafetyBackup('Before restoring collapsible section to normal text');
     setBlocks(current => current.map(block => {
@@ -846,6 +853,25 @@ function App() {
     );
   }
 
+  function AllSectionsSwitch({ compact = false }) {
+    const disabled = !collapsibleBlocks.length;
+    return (
+      <button
+        type="button"
+        className={`all-sections-switch ${areAllSectionsExpanded ? 'is-expanded' : 'is-collapsed'} ${compact ? 'compact' : ''}`}
+        onClick={toggleAllSections}
+        disabled={disabled}
+        aria-pressed={areAllSectionsExpanded}
+        aria-label={areAllSectionsExpanded ? 'Collapse all sections' : 'Expand all sections'}
+        title={areAllSectionsExpanded ? 'Collapse all sections' : 'Expand all sections'}
+      >
+        <span className="all-switch-label">All</span>
+        <span className="switch-track" aria-hidden="true"><span className="switch-thumb" /></span>
+        <span className="all-switch-state">{areAllSectionsExpanded ? 'Expanded' : 'Collapsed'}</span>
+      </button>
+    );
+  }
+
   if (deliveryMode) {
     return (
       <div className="app-shell delivery-shell" style={{ '--delivery-scale': deliveryScale }}>
@@ -858,11 +884,10 @@ function App() {
             </div>
           </div>
           <div className="delivery-actions">
-            <button onClick={exitDeliveryMode}><X size={18} /> Exit</button>
-            <button onClick={() => expandAll(false)}><ChevronRight size={18} /> Collapse</button>
-            <button onClick={() => expandAll(true)}><ChevronDown size={18} /> Expand</button>
-            <button onClick={() => setDeliveryScale(value => Math.max(0.9, Number((value - 0.08).toFixed(2))))}><Minus size={18} /> A</button>
-            <button onClick={() => setDeliveryScale(value => Math.min(1.6, Number((value + 0.08).toFixed(2))))}><Plus size={18} /> A</button>
+            <button className="mode-switch-button" onClick={exitDeliveryMode}><X size={17} /> <span>Edit</span></button>
+            <AllSectionsSwitch compact />
+            <button className="text-size-button" onClick={() => setDeliveryScale(value => Math.max(0.9, Number((value - 0.08).toFixed(2))))} aria-label="Decrease reading size"><Minus size={18} /> A</button>
+            <button className="text-size-button" onClick={() => setDeliveryScale(value => Math.min(1.6, Number((value + 0.08).toFixed(2))))} aria-label="Increase reading size"><Plus size={18} /> A</button>
           </div>
         </header>
 
@@ -907,9 +932,12 @@ function App() {
             aria-label="Current file name"
           />
         </div>
-        <div className="save-indicator" aria-live="polite">
-          <CheckCircle2 size={18} />
-          <span>{dirty ? 'Unsaved changes' : lastSavedAt ? `Saved ${formatTime(lastSavedAt)}` : 'Not saved yet'}</span>
+        <div className="header-actions">
+          <div className="save-indicator" aria-live="polite">
+            <CheckCircle2 size={18} />
+            <span>{dirty ? 'Unsaved changes' : lastSavedAt ? `Saved ${formatTime(lastSavedAt)}` : 'Not saved yet'}</span>
+          </div>
+          <button className="mode-switch-button" onClick={enterDeliveryMode}><FileText size={17} /> <span>Deliver</span></button>
         </div>
       </header>
 
@@ -920,10 +948,9 @@ function App() {
         <div className="menu-wrap wide-only" ref={viewRef} onMouseEnter={cancelMenuClose} onMouseLeave={scheduleMenuClose}>
           <button onClick={() => setShowViewMenu(value => !value)}><ChevronDown size={18} /> View</button>
           {showViewMenu && (
-            <div className="menu-card small-menu" onMouseEnter={cancelMenuClose} onMouseLeave={scheduleMenuClose}>
-              <button onClick={() => expandAll(false)}><ChevronRight size={18} /> Collapse all</button>
-              <button onClick={() => expandAll(true)}><ChevronDown size={18} /> Expand all</button>
-              <button onClick={enterDeliveryMode}><FileText size={18} /> Delivery mode</button>
+            <div className="menu-card small-menu view-menu" onMouseEnter={cancelMenuClose} onMouseLeave={scheduleMenuClose}>
+              <p className="menu-label">All sections</p>
+              <AllSectionsSwitch />
             </div>
           )}
         </div>
@@ -947,9 +974,7 @@ function App() {
               <button onClick={() => openOptionsAction(exportHtml)}><Download size={18} /> Export HTML</button>
               <button onClick={() => { setShowVersions(value => !value); setShowOptions(false); }}><History size={18} /> Previous versions</button>
               <p className="menu-label mobile-only">View</p>
-              <button className="mobile-only" onClick={() => openOptionsAction(() => expandAll(false))}><ChevronRight size={18} /> Collapse all</button>
-              <button className="mobile-only" onClick={() => openOptionsAction(() => expandAll(true))}><ChevronDown size={18} /> Expand all</button>
-              <button className="mobile-only" onClick={() => openOptionsAction(enterDeliveryMode)}><FileText size={18} /> Delivery mode</button>
+              <div className="mobile-only switch-menu-row"><AllSectionsSwitch /></div>
             </div>
           )}
         </div>
