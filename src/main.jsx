@@ -232,10 +232,16 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
     if (typeof textareaRef === 'function') textareaRef(el);
   }
 
-  function resize(el) {
+  function resize(el, allowShrink = false) {
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.max(el.scrollHeight, 30)}px`;
+
+    // Avoid temporarily collapsing the editor and moving the page while typing.
+    const currentHeight = parseFloat(el.style.height) || 0;
+    if (allowShrink) el.style.height = 'auto';
+    const neededHeight = Math.max(el.scrollHeight, 30);
+    if (allowShrink || neededHeight > currentHeight + 1 || !currentHeight) {
+      el.style.height = `${neededHeight}px`;
+    }
   }
 
   useLayoutEffect(() => {
@@ -251,6 +257,7 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
       onMouseUp={onMouseUp}
       onKeyUp={onKeyUp}
       onInput={event => resize(event.currentTarget)}
+      onBlur={event => resize(event.currentTarget, true)}
       onChange={onChange}
       placeholder={placeholder}
       readOnly={readOnly}
