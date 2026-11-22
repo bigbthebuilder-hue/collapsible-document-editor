@@ -255,6 +255,21 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
     };
   }, []);
 
+  useEffect(() => {
+    const el = localRef.current;
+    const captureEdit = event => {
+      let start = el.selectionStart, end = el.selectionEnd;
+      if (start === end && event.inputType === 'deleteContentBackward' && start) {
+        start -= Array.from(el.value.slice(0, start)).at(-1).length;
+      } else if (start === end && event.inputType === 'deleteContentForward' && end < el.value.length) {
+        end += Array.from(el.value.slice(end))[0].length;
+      }
+      editSelection.current = { start, end };
+    };
+    el.addEventListener('beforeinput', captureEdit);
+    return () => el.removeEventListener('beforeinput', captureEdit);
+  }, []);
+
   function applyFormat(kind) {
     if (!selection || readOnly) return;
     const el = localRef.current;
@@ -298,7 +313,6 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
       onInput={event => resize(event.currentTarget)}
       onBlur={event => resize(event.currentTarget, true)}
       onSelect={rememberSelection}
-      onBeforeInput={() => { const el = localRef.current; editSelection.current = { start: el.selectionStart, end: el.selectionEnd }; }}
       onCompositionStart={() => { composing.current = true; setSelection(null); }}
       onCompositionEnd={() => { composing.current = false; rememberSelection(); }}
       onKeyDown={event => {
