@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import mammoth from 'mammoth';
 import {
   CheckCircle2,
@@ -25,7 +26,7 @@ import {
 } from 'lucide-react';
 import './styles.css';
 import { importHtml } from './import-html.js';
-import { normalizeMarks, normalizeRich, runs, toggleMark, isMarked, editMarks, sliceMarks, formattedHtml } from './formatting.js';
+import { normalizeRich, runs, toggleMark, isMarked, editMarks, sliceMarks, formattedHtml } from './formatting.js';
 
 const APP_VERSION = '1.5';
 const LIBRARY_KEY = 'talk-doc-library-v1';
@@ -66,20 +67,6 @@ function normalizeBlocks(blocks) {
 
 function makeTextBlock(content, marks = []) {
   return { id: uid(), type: 'text', ...normalizeRich(content, marks) };
-}
-
-function htmlToText(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const blocks = [];
-
-  doc.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li').forEach(node => {
-    const text = node.textContent.trim();
-    if (text) blocks.push(text);
-  });
-
-  if (blocks.length) return blocks.join('\n\n');
-  return doc.body.textContent.trim();
 }
 
 function createPreviewFromText(text) {
@@ -229,13 +216,17 @@ function migrateOldDocumentIfNeeded() {
 function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFocus, onMouseUp, onKeyUp, placeholder, readOnly = false, marks = [], onFormat }) {
   const localRef = useRef(null);
   const [selection, setSelection] = useState(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const editSelection = useRef(null);
   const composing = useRef(false);
+  const formatToolbarRef = useRef(null);
+  const markHistory = useRef(new Map());
+  markHistory.current.set(value, marks);
 
   function rememberSelection() {
     const el = localRef.current;
     if (document.activeElement !== el) {
-      if (!el?.parentElement.contains(document.activeElement)) setSelection(null);
+      if (!formatToolbarRef.current?.contains(document.activeElement)) setSelection(null);
       return;
     }
     if (composing.current) return;
@@ -248,6 +239,19 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
     return () => {
       document.removeEventListener('selectionchange', rememberSelection);
       document.removeEventListener('focusin', rememberSelection);
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const positionTools = () => setKeyboardInset(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop));
+    positionTools();
+    viewport.addEventListener('resize', positionTools);
+    viewport.addEventListener('scroll', positionTools);
+    return () => {
+      viewport.removeEventListener('resize', positionTools);
+      viewport.removeEventListener('scroll', positionTools);
     };
   }, []);
 
@@ -303,17 +307,23 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
         }
       }}
       onChange={event => {
-        onChange(event, editMarks(value, event.target.value, marks, editSelection.current));
+        const nextText = event.target.value;
+        const historyInput = /^history(Undo|Redo)$/.test(event.nativeEvent.inputType || '');
+        const nextMarks = historyInput && markHistory.current.has(nextText)
+          ? markHistory.current.get(nextText)
+          : editMarks(value, nextText, marks, editSelection.current);
+        onChange(event, nextMarks);
+        if (markHistory.current.size > 100) markHistory.current.delete(markHistory.current.keys().next().value);
         editSelection.current = null;
         setSelection(null);
       }}
       placeholder={placeholder}
       readOnly={readOnly}
     />
-    {selection && !readOnly && <div className="selection-format-tools" role="toolbar" aria-label="Selected text formatting" onPointerDown={event => event.preventDefault()}>
+    {selection && !readOnly && createPortal(<div ref={formatToolbarRef} style={{ bottom: `calc(${keyboardInset + 12}px + env(safe-area-inset-bottom))` }} className="selection-format-tools" role="toolbar" aria-label="Selected text formatting" onPointerDown={event => event.preventDefault()}>
       <button type="button" aria-label="Bold" aria-pressed={isMarked(value, marks, selection.start, selection.end, 'bold')} onClick={() => applyFormat('bold')}><b>B</b><span>Bold</span></button>
       <button type="button" aria-label="Highlight" aria-pressed={isMarked(value, marks, selection.start, selection.end, 'highlight')} onClick={() => applyFormat('highlight')}><span className="highlight-swatch">H</span><span>Highlight</span></button>
-    </div>}
+    </div>, document.body)}
     </div>
   );
 }
@@ -844,7 +854,7 @@ function App() {
       return `<p>${formattedHtml(block.content, block.marks)}</p>`;
     }).join('\n');
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title><style>body{font-family:Arial,sans-serif;line-height:1.55;max-width:850px;margin:40px auto;padding:0 18px}details{border:1px solid #ccc;border-radius:10px;padding:12px;margin:12px 0}summary{font-weight:700;cursor:pointer}mark{background:#fff0a6;color:inherit}</style></head><body><h1>${escapeHtml(docTitle)}</h1>${body}</body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title><style>body{font-family:Arial,sans-serif;line-height:1.55;max-width:850px;margin:40px auto;padding:0 18px}details{border:1px solid #ccc;border-radius:10px;padding:12px;margin:12px 0}summary{font-weight:700;cursor:pointer}mark{background:#fff0a6;color:inherit}</style></head><body data-talk-doc="1"><h1>${escapeHtml(docTitle)}</h1>${body}</body></html>`;
     downloadFile(`${safeFilename(docTitle)}.html`, html, 'text/html');
   }
 
@@ -1175,8 +1185,8 @@ function App() {
                   <AutoResizeTextarea
                     className="expanded-editor document-flow-editor"
                     value={block.content}
-                  marks={block.marks}
-                  onFormat={marks => updateBlock(block.id, { marks })}
+                    marks={block.marks}
+                    onFormat={marks => updateBlock(block.id, { marks })}
                     onChange={(event, marks) => updateBlock(block.id, { content: event.target.value, marks })}
                     placeholder="Full section text..."
                   />

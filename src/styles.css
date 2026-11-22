@@ -605,7 +605,7 @@ button.ghost { background: transparent; box-shadow: none; color: var(--blue); }
 .formatted-editor:focus-within > .format-layer.expanded-editor { padding-left: 1.2rem; }
 .formatted-editor > textarea:focus { background: transparent; }
 mark { background: #fff0a6; color: inherit; border-radius: 2px; }
-.selection-format-tools { position: fixed; z-index: 50; top: 132px; right: max(12px, env(safe-area-inset-right)); display: flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--border, #d5dbe4); border-radius: 10px; box-shadow: 0 3px 14px #15283c24; }
+.selection-format-tools { position: fixed; z-index: 1000; right: max(12px, env(safe-area-inset-right)); display: flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--border, #d5dbe4); border-radius: 10px; box-shadow: 0 3px 14px #15283c24; }
 .selection-format-tools button { display: flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 7px 10px; }
 .selection-format-tools button[aria-pressed="true"] { background: #e4edff; border-color: #91b4ef; }
 .highlight-swatch { background: #fff0a6; font-weight: 700; padding: 0 3px; }
