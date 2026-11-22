@@ -1,0 +1,25 @@
+name: Talk Doc regression tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Verify live production on desktop phone and tablet
+        if: github.ref == 'refs/heads/main'
+        run: npm run test:browser
+        env:
+          TEST_URL: https://collapsible-document-editor.vercel.app
