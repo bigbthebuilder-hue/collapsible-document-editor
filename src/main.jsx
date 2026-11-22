@@ -24,6 +24,8 @@ import {
   X
 } from 'lucide-react';
 import './styles.css';
+import { importHtml } from './import-html.js';
+import { normalizeMarks, normalizeRich, runs, toggleMark, isMarked, editMarks, sliceMarks, formattedHtml } from './formatting.js';
 
 const APP_VERSION = '1.5';
 const LIBRARY_KEY = 'talk-doc-library-v1';
@@ -54,16 +56,16 @@ function normalizeBlocks(blocks) {
         id: block.id || uid(),
         type: 'collapsible',
         preview: block.preview || createPreviewFromText(block.content || ''),
-        content: cleanText(block.content || ''),
+        ...normalizeRich(block.content, block.marks),
         isOpen: !!block.isOpen
       };
     }
-    return { id: block?.id || uid(), type: 'text', content: cleanText(block?.content || '') };
+    return { id: block?.id || uid(), type: 'text', ...normalizeRich(block?.content, block?.marks) };
   }).filter(block => block.type === 'collapsible' || block.content);
 }
 
-function makeTextBlock(content) {
-  return { id: uid(), type: 'text', content: cleanText(content) };
+function makeTextBlock(content, marks = []) {
+  return { id: uid(), type: 'text', ...normalizeRich(content, marks) };
 }
 
 function htmlToText(html) {
@@ -88,12 +90,12 @@ function createPreviewFromText(text) {
   return base.length > 120 ? base.slice(0, 117).trim() + '...' : base;
 }
 
-function makeCollapsibleBlock(text) {
+function makeCollapsibleBlock(text, marks = []) {
   return {
     id: uid(),
     type: 'collapsible',
     preview: createPreviewFromText(text),
-    content: cleanText(text),
+    ...normalizeRich(text, marks),
     isOpen: false
   };
 }
@@ -224,8 +226,39 @@ function migrateOldDocumentIfNeeded() {
   return next;
 }
 
-function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFocus, onMouseUp, onKeyUp, placeholder, readOnly = false }) {
+function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFocus, onMouseUp, onKeyUp, placeholder, readOnly = false, marks = [], onFormat }) {
   const localRef = useRef(null);
+  const [selection, setSelection] = useState(null);
+  const editSelection = useRef(null);
+  const composing = useRef(false);
+
+  function rememberSelection() {
+    const el = localRef.current;
+    if (document.activeElement !== el) {
+      if (!el?.parentElement.contains(document.activeElement)) setSelection(null);
+      return;
+    }
+    if (composing.current) return;
+    setSelection(el.selectionStart < el.selectionEnd ? { start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection } : null);
+  }
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', rememberSelection);
+    document.addEventListener('focusin', rememberSelection);
+    return () => {
+      document.removeEventListener('selectionchange', rememberSelection);
+      document.removeEventListener('focusin', rememberSelection);
+    };
+  }, []);
+
+  function applyFormat(kind) {
+    if (!selection || readOnly) return;
+    const el = localRef.current;
+    onFormat?.(toggleMark(value, marks, selection.start, selection.end, kind));
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(selection.start, selection.end, selection.direction);
+  }
+
 
   function setRefs(el) {
     localRef.current = el;
@@ -249,6 +282,8 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
   }, [value]);
 
   return (
+    <div className="formatted-editor">
+    <div aria-hidden="true" className={`format-layer ${className}`}><FormattedText text={value} marks={marks} />{'\n'}</div>
     <textarea
       ref={setRefs}
       className={className}
@@ -258,15 +293,42 @@ function AutoResizeTextarea({ className = '', value, onChange, textareaRef, onFo
       onKeyUp={onKeyUp}
       onInput={event => resize(event.currentTarget)}
       onBlur={event => resize(event.currentTarget, true)}
-      onChange={onChange}
+      onSelect={rememberSelection}
+      onBeforeInput={() => { const el = localRef.current; editSelection.current = { start: el.selectionStart, end: el.selectionEnd }; }}
+      onCompositionStart={() => { composing.current = true; setSelection(null); }}
+      onCompositionEnd={() => { composing.current = false; rememberSelection(); }}
+      onKeyDown={event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b' && selection) {
+          event.preventDefault(); applyFormat('bold');
+        }
+      }}
+      onChange={event => {
+        onChange(event, editMarks(value, event.target.value, marks, editSelection.current));
+        editSelection.current = null;
+        setSelection(null);
+      }}
       placeholder={placeholder}
       readOnly={readOnly}
     />
+    {selection && !readOnly && <div className="selection-format-tools" role="toolbar" aria-label="Selected text formatting" onPointerDown={event => event.preventDefault()}>
+      <button type="button" aria-label="Bold" aria-pressed={isMarked(value, marks, selection.start, selection.end, 'bold')} onClick={() => applyFormat('bold')}><b>B</b><span>Bold</span></button>
+      <button type="button" aria-label="Highlight" aria-pressed={isMarked(value, marks, selection.start, selection.end, 'highlight')} onClick={() => applyFormat('highlight')}><span className="highlight-swatch">H</span><span>Highlight</span></button>
+    </div>}
+    </div>
   );
 }
 
-function TextDisplay({ text }) {
-  return <div className="readonly-text">{text}</div>;
+function FormattedText({ text, marks }) {
+  return runs(text, marks).map((run, index) => {
+    let node = run.text;
+    if (run.bold) node = <strong>{node}</strong>;
+    if (run.highlight) node = <mark>{node}</mark>;
+    return <React.Fragment key={index}>{node}</React.Fragment>;
+  });
+}
+
+function TextDisplay({ text, marks }) {
+  return <div className="readonly-text"><FormattedText text={text} marks={marks} /></div>;
 }
 
 function App() {
@@ -593,12 +655,17 @@ function App() {
       }
 
       let text = '';
+      let importedBlocks = null;
       const fileName = file.name.toLowerCase();
 
       if (fileName.endsWith('.docx')) {
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.convertToHtml({ arrayBuffer });
-        text = htmlToText(result.value);
+        const result = await mammoth.convertToHtml({ arrayBuffer }, { styleMap: ["highlight[color='yellow'] => mark"] });
+        importedBlocks = importHtml(result.value);
+        text = importedBlocks.map(b => b.content).join('\n');
+      } else if (fileName.endsWith('.html')) {
+        importedBlocks = importHtml(await file.text());
+        text = importedBlocks.map(b => b.content).join('\n');
       } else {
         text = await file.text();
       }
@@ -610,7 +677,7 @@ function App() {
       }
 
       setDocTitle(file.name.replace(/\.[^.]+$/, ''));
-      setBlocks([makeTextBlock(text)]);
+      setBlocks(importedBlocks ? normalizeBlocks(importedBlocks) : [makeTextBlock(text)]);
       setShowImport(false);
       setMessage(`Imported ${file.name}. Save the file when ready.`);
     } catch {
@@ -693,11 +760,11 @@ function App() {
     const sourceBlock = blocks.find(block => block.id === activeTextBlockId && block.type === 'text');
     if (!sourceBlock) return false;
 
-    const selectedText = cleanText(sourceBlock.content.slice(range.start, range.end));
+    const selectedText = sourceBlock.content.slice(range.start, range.end);
     if (!selectedText) return false;
 
-    const beforeText = cleanText(sourceBlock.content.slice(0, range.start));
-    const afterText = cleanText(sourceBlock.content.slice(range.end));
+    const beforeText = sourceBlock.content.slice(0, range.start);
+    const afterText = sourceBlock.content.slice(range.end);
 
     setBlocks(current => {
       const next = [];
@@ -706,9 +773,9 @@ function App() {
           next.push(block);
           return;
         }
-        if (beforeText) next.push(makeTextBlock(beforeText));
-        next.push(makeCollapsibleBlock(selectedText));
-        if (afterText) next.push(makeTextBlock(afterText));
+        if (beforeText) next.push(makeTextBlock(beforeText, sliceMarks(block.content, block.marks, 0, range.start)));
+        next.push(makeCollapsibleBlock(selectedText, sliceMarks(block.content, block.marks, range.start, range.end)));
+        if (afterText) next.push(makeTextBlock(afterText, sliceMarks(block.content, block.marks, range.end, block.content.length)));
       });
       return next;
     });
@@ -750,7 +817,7 @@ function App() {
     createSafetyBackup('Before restoring collapsible section to normal text');
     setBlocks(current => current.map(block => {
       if (block.id !== id) return block;
-      return makeTextBlock(block.content);
+      return makeTextBlock(block.content, block.marks);
     }));
     setOpenSectionMenuId(null);
     setMessage('Restored that collapsible portion back into normal document text using its current edited full text.');
@@ -772,12 +839,12 @@ function App() {
   function exportHtml() {
     const body = blocks.map(block => {
       if (block.type === 'collapsible') {
-        return `<details><summary>${escapeHtml(block.preview)}</summary><div>${escapeHtml(block.content).replace(/\n/g, '<br>')}</div></details>`;
+        return `<details><summary>${escapeHtml(block.preview)}</summary><div>${formattedHtml(block.content, block.marks)}</div></details>`;
       }
-      return `<p>${escapeHtml(block.content).replace(/\n/g, '<br>')}</p>`;
+      return `<p>${formattedHtml(block.content, block.marks)}</p>`;
     }).join('\n');
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title><style>body{font-family:Arial,sans-serif;line-height:1.55;max-width:850px;margin:40px auto;padding:0 18px}details{border:1px solid #ccc;border-radius:10px;padding:12px;margin:12px 0}summary{font-weight:700;cursor:pointer}</style></head><body><h1>${escapeHtml(docTitle)}</h1>${body}</body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title><style>body{font-family:Arial,sans-serif;line-height:1.55;max-width:850px;margin:40px auto;padding:0 18px}details{border:1px solid #ccc;border-radius:10px;padding:12px;margin:12px 0}summary{font-weight:700;cursor:pointer}mark{background:#fff0a6;color:inherit}</style></head><body><h1>${escapeHtml(docTitle)}</h1>${body}</body></html>`;
     downloadFile(`${safeFilename(docTitle)}.html`, html, 'text/html');
   }
 
@@ -902,7 +969,7 @@ function App() {
           {!blocks.length && <div className="empty-state"><h2>No document text yet</h2><p>Exit Delivery Mode to add text.</p></div>}
           {blocks.map(block => {
             if (block.type === 'text') {
-              return <section key={block.id} className="doc-block text-block"><TextDisplay text={block.content} /></section>;
+              return <section key={block.id} className="doc-block text-block"><TextDisplay text={block.content} marks={block.marks} /></section>;
             }
             return (
               <section key={block.id} className={`doc-block collapsible-block ${block.isOpen ? 'expanded-flow' : 'collapsed-flow'} delivery-block`}>
@@ -911,7 +978,7 @@ function App() {
                   <div className="delivery-preview-text">{block.preview || 'Collapsed section'}</div>
                   {renderSectionMenu(block)}
                 </div>
-                {block.isOpen && <TextDisplay text={block.content} />}
+                {block.isOpen && <TextDisplay text={block.content} marks={block.marks} />}
               </section>
             );
           })}
@@ -1081,10 +1148,12 @@ function App() {
                   textareaRef={el => { if (el) blockTextareaRefs.current[block.id] = el; }}
                   className="text-editor"
                   value={block.content}
+                  marks={block.marks}
+                  onFormat={marks => updateBlock(block.id, { marks })}
                   onFocus={() => setActiveTextBlockId(block.id)}
                   onMouseUp={() => setActiveTextBlockId(block.id)}
                   onKeyUp={() => setActiveTextBlockId(block.id)}
-                  onChange={event => updateBlock(block.id, { content: event.target.value })}
+                  onChange={(event, marks) => updateBlock(block.id, { content: event.target.value, marks })}
                   placeholder="Type or paste text here..."
                 />
               </div>
@@ -1106,7 +1175,9 @@ function App() {
                   <AutoResizeTextarea
                     className="expanded-editor document-flow-editor"
                     value={block.content}
-                    onChange={event => updateBlock(block.id, { content: event.target.value })}
+                  marks={block.marks}
+                  onFormat={marks => updateBlock(block.id, { marks })}
+                    onChange={(event, marks) => updateBlock(block.id, { content: event.target.value, marks })}
                     placeholder="Full section text..."
                   />
                 )}

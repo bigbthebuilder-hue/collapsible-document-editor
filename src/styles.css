@@ -592,3 +592,20 @@ button.ghost { background: transparent; box-shadow: none; color: var(--blue); }
   .document-page { padding: 0.85rem 1rem; }
   .delivery-header { padding: 0.4rem 0; }
 }
+
+/* Keep native textarea editing and its resize/scroll behavior. The paint layer
+   shares the exact same glyph advances, so touch handles and the caret align. */
+.formatted-editor { position: relative; }
+.formatted-editor > textarea { position: relative; z-index: 1; display: block; color: transparent; caret-color: var(--text); background: transparent; -webkit-text-fill-color: transparent; }
+.formatted-editor > textarea::placeholder { -webkit-text-fill-color: #777; }
+.formatted-editor > textarea::selection { background: rgba(60, 126, 220, .28); }
+.format-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; overflow-wrap: break-word; tab-size: 8; }
+.format-layer strong { font-weight: inherit; text-shadow: .45px 0 currentColor, -.45px 0 currentColor; }
+.formatted-editor:focus-within > .format-layer.text-editor { padding-left: .45rem; }
+.formatted-editor:focus-within > .format-layer.expanded-editor { padding-left: 1.2rem; }
+.formatted-editor > textarea:focus { background: transparent; }
+mark { background: #fff0a6; color: inherit; border-radius: 2px; }
+.selection-format-tools { position: fixed; z-index: 50; top: 132px; right: max(12px, env(safe-area-inset-right)); display: flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--border, #d5dbe4); border-radius: 10px; box-shadow: 0 3px 14px #15283c24; }
+.selection-format-tools button { display: flex; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 7px 10px; }
+.selection-format-tools button[aria-pressed="true"] { background: #e4edff; border-color: #91b4ef; }
+.highlight-swatch { background: #fff0a6; font-weight: 700; padding: 0 3px; }
