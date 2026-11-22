@@ -1,0 +1,2 @@
+const http=require('http'),fs=require('fs'),path=require('path');
+http.createServer((req,res)=>{const file=path.join(process.cwd(),'dist',decodeURIComponent(req.url.split('?')[0]));if(!file.startsWith(path.join(process.cwd(),'dist'))) {res.writeHead(403).end();return;}const target=fs.existsSync(file)&&fs.statSync(file).isFile()?file:path.join(process.cwd(),'dist/index.html');res.setHeader('Content-Type',target.endsWith('.js')?'text/javascript':target.endsWith('.css')?'text/css':'text/html');fs.createReadStream(target).pipe(res);}).listen(4173,'127.0.0.1');
