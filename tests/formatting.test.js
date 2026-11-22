@@ -81,3 +81,10 @@ test('the deployed cursor/scroll resize correction remains byte-for-byte unchang
   assert.ok(source.includes("onBlur={event => resize(event.currentTarget, true)}"));
   assert.ok(source.includes("onInput={event => resize(event.currentTarget)}"));
 });
+
+test('replacement inherits a uniform style across different highlight boundaries', () => {
+  const marks=toggleMark(text,bold,3,8,'highlight');
+  const next=editMarks(text,'X gamma',marks,{start:0,end:10});
+  assert.equal(isMarked('X gamma',next,0,1,'bold'),true);
+  assert.equal(isMarked('X gamma',next,0,1,'highlight'),false);
+});
