@@ -71,9 +71,14 @@ export function editMarks(oldText, newText, marks, selection) {
   for (const m of normalizeMarks(oldText, marks)) {
     if (m.start < start) next.push({ ...m, end: Math.min(start, m.end) });
     if (m.end > end) next.push({ ...m, start: Math.max(end, m.start) + delta, end: m.end + delta });
-    if (inserted && (start === end ? m.start < start && m.end >= start : m.start <= start && m.end >= end)) {
+    if (inserted && start === end && m.start < start && m.end >= start) {
       next.push({ ...m, start, end: start + inserted.length });
     }
+  }
+  if (inserted && start < end) {
+    next.push({ start, end: start + inserted.length,
+      bold: isMarked(oldText, marks, start, end, 'bold'),
+      highlight: isMarked(oldText, marks, start, end, 'highlight') });
   }
   return normalizeMarks(newText, next);
 }
